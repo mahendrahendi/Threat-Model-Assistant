@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Threat Modeling Assistant</title>
+    <meta name="description" content="AI-powered threat modeling using OWASP, STRIDE, and DREAD methodologies">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="logo">
+            <div class="logo-icon">
+                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 4L4 12v16l16 8 16-8V12L20 4z" stroke="currentColor" stroke-width="2" fill="none"/>
+                    <path d="M20 8l-12 6v12l12 6 12-6V14L20 8z" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.5"/>
+                    <circle cx="20" cy="20" r="4" fill="currentColor" opacity="0.8"/>
+                    <path d="M20 12v-4M20 32v-4M12 16l-4-2M32 26l-4-2M12 24l-4 2M32 14l-4 2" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+                </svg>
+            </div>
+            <div>
+                <h1>Threat Model<span class="accent">AI</span></h1>
+                <p class="subtitle">OWASP · STRIDE · DREAD</p>
+            </div>
+        </div>
+        <div class="header-status" id="llm-status">
+            <span class="status-dot offline"></span>
+            <span class="status-text">Checking LLM...</span>
+        </div>
+    </header>
+
+    <!-- Progress Steps -->
+    <nav class="step-nav" id="step-nav">
+        <div class="step-item active" data-step="1">
+            <div class="step-number">1</div>
+            <span>System Info</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="2">
+            <div class="step-number">2</div>
+            <span>Deep Context</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="3">
+            <div class="step-number">3</div>
+            <span>Architecture</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="4">
+            <div class="step-number">4</div>
+            <span>Data Flows</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="5">
+            <div class="step-number">5</div>
+            <span>AI Analysis</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="6">
+            <div class="step-number">6</div>
+            <span>Review Threats</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="7">
+            <div class="step-number">7</div>
+            <span>Report</span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="wizard-container">
+
+        <!-- Step 1: System Info -->
+        <section class="wizard-step active" id="step-1">
+            <div class="step-header">
+                <h2>📋 Describe Your System</h2>
+                <p>Tell us about the application or system you want to threat model.</p>
+            </div>
+
+            <div class="form-card">
+                <div class="form-group">
+                    <label for="sys-name">Application Name <span class="required">*</span></label>
+                    <input type="text" id="sys-name" placeholder="e.g., Customer Payment Portal" class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label for="sys-desc">System Description <span class="required">*</span></label>
+                    <textarea id="sys-desc" rows="4" placeholder="Describe what the system does, who uses it, and what data it handles. The more detail you provide, the better the threat analysis." class="input-field"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>System Domain</label>
+                    <p class="form-help">Select the security domain for domain-specific threat expertise</p>
+                    <div class="template-grid" id="domain-grid">
+                        <div class="template-card selected" data-domain="general" onclick="selectDomain('general', this)">
+                            <div class="template-icon">🔒</div>
+                            <div class="template-name">General</div>
+                            <div class="template-desc">Custom system</div>
+                        </div>
+                        <div class="template-card" data-domain="pki_ca" onclick="selectDomain('pki_ca', this)">
+                            <div class="template-icon">🔐</div>
+                            <div class="template-name">PKI / CA</div>
+                            <div class="template-desc">Certificate Authority, HSM, key management</div>
+                        </div>
+                        <div class="template-card" data-domain="payment" onclick="selectDomain('payment', this)">
+                            <div class="template-icon">💳</div>
+                            <div class="template-name">Payment / PCI</div>
+                            <div class="template-desc">Payment processing, PCI DSS</div>
+                        </div>
+                        <div class="template-card" data-domain="iam_identity" onclick="selectDomain('iam_identity', this)">
+                            <div class="template-icon">🪪</div>
+                            <div class="template-name">IAM / Identity</div>
+                            <div class="template-desc">SSO, federation, directory</div>
+                        </div>
+                        <div class="template-card" data-domain="healthcare" onclick="selectDomain('healthcare', this)">
+                            <div class="template-icon">🏥</div>
+                            <div class="template-name">Healthcare / HIPAA</div>
+                            <div class="template-desc">PHI, EHR, clinical systems</div>
+                        </div>
+                        <div class="template-card" data-domain="cloud_saas" onclick="selectDomain('cloud_saas', this)">
+                            <div class="template-icon">☁️</div>
+                            <div class="template-name">Cloud / SaaS</div>
+                            <div class="template-desc">Multi-tenant, cloud-native</div>
+                        </div>
+                        <div class="template-card" data-domain="iot_embedded" onclick="selectDomain('iot_embedded', this)">
+                            <div class="template-icon">📡</div>
+                            <div class="template-name">IoT / Embedded</div>
+                            <div class="template-desc">Devices, firmware, protocols</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Architecture Template</label>
+                    <p class="form-help">Select a template to pre-fill components, data flows, and trust boundaries — or start from scratch.</p>
+                    <div class="template-grid" id="template-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <div></div>
+                <button class="btn btn-primary" onclick="nextStep()">Continue → Deep Context</button>
+            </div>
+        </section>
+
+        <!-- Step 2: Deep Context -->
+        <section class="wizard-step" id="step-2">
+            <div class="step-header">
+                <h2>🎯 Deep Context — Crown Jewels, Workflows & Roles</h2>
+                <p>This is where the magic happens. The more context you provide, the more insightful and specific the threats will be.</p>
+            </div>
+
+            <div class="form-card">
+                <div class="form-group">
+                    <div class="section-header">
+                        <label>👑 Crown Jewels (Critical Assets)</label>
+                        <button class="btn btn-small" onclick="addCrownJewel()">+ Add Asset</button>
+                    </div>
+                    <p class="form-help">What are the most valuable/sensitive assets? What would cause maximum damage if stolen, modified, or destroyed?</p>
+                    <div id="crown-jewels-list" class="dynamic-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-card">
+                <div class="form-group">
+                    <div class="section-header">
+                        <label>⚙️ Business Workflows (Critical Processes)</label>
+                        <button class="btn btn-small" onclick="addWorkflow()">+ Add Workflow</button>
+                    </div>
+                    <p class="form-help">Describe step-by-step how critical operations work. The AI will analyze each step for abuse potential. Example: "User requests certificate → RA validates identity → CA signs with designated key"</p>
+                    <div id="workflows-list" class="dynamic-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-card">
+                <div class="form-group">
+                    <div class="section-header">
+                        <label>👤 User Roles & Permissions</label>
+                        <button class="btn btn-small" onclick="addUserRole()">+ Add Role</button>
+                    </div>
+                    <p class="form-help">Who interacts with the system and what can they do? Include external users, internal admins, service accounts, etc.</p>
+                    <div id="user-roles-list" class="dynamic-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+                <button class="btn btn-primary" onclick="nextStep()">Continue → Architecture</button>
+            </div>
+        </section>
+
+        <!-- Step 3: Architecture Details -->
+        <section class="wizard-step" id="step-3">
+            <div class="step-header">
+                <h2>🏗️ Architecture Details</h2>
+                <p>Define the technical stack, authentication mechanisms, and security posture.</p>
+            </div>
+
+            <div class="form-card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Technology Stack</label>
+                        <p class="form-help">Add technologies used in your system</p>
+                        <div class="tag-input-container">
+                            <div class="tag-list" id="tech-tags"></div>
+                            <input type="text" id="tech-input" placeholder="Type and press Enter (e.g., Python, PostgreSQL, React)" class="input-field tag-input" onkeydown="handleTagInput(event, 'tech')">
+                        </div>
+                        <div class="tag-suggestions">
+                            <span class="tag-suggest" onclick="addTag('tech', 'Python')">Python</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Node.js')">Node.js</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Java')">Java</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Go')">Go</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'React')">React</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'PostgreSQL')">PostgreSQL</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'MongoDB')">MongoDB</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Redis')">Redis</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Docker')">Docker</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Kubernetes')">Kubernetes</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'AWS')">AWS</span>
+                            <span class="tag-suggest" onclick="addTag('tech', 'Nginx')">Nginx</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row two-col">
+                    <div class="form-group">
+                        <label>Authentication Mechanisms</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="OAuth 2.0"> OAuth 2.0</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="JWT"> JWT Tokens</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="Session Cookies"> Session Cookies</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="API Keys"> API Keys</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="SAML/SSO"> SAML / SSO</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="MFA"> MFA</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="mTLS"> mTLS</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="Certificate-Based"> Certificate-Based</label>
+                            <label class="checkbox-item"><input type="checkbox" name="auth" value="None"> None / Anonymous</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Existing Security Controls</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="WAF"> WAF</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="Encryption at Rest"> Encryption at Rest</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="TLS/HTTPS"> TLS / HTTPS</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="Rate Limiting"> Rate Limiting</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="Input Validation"> Input Validation</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="Audit Logging"> Audit Logging</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="RBAC"> RBAC</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="HSM"> HSM</label>
+                            <label class="checkbox-item"><input type="checkbox" name="controls" value="SIEM"> SIEM</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row two-col">
+                    <div class="form-group">
+                        <label>Data Sensitivity</label>
+                        <div class="radio-grid">
+                            <label class="radio-item"><input type="radio" name="sensitivity" value="Public"> <span class="radio-label">Public</span><span class="radio-desc">Non-sensitive, public-facing data</span></label>
+                            <label class="radio-item"><input type="radio" name="sensitivity" value="Internal" checked> <span class="radio-label">Internal</span><span class="radio-desc">Internal business data</span></label>
+                            <label class="radio-item"><input type="radio" name="sensitivity" value="Confidential"> <span class="radio-label">Confidential</span><span class="radio-desc">PII, financial data, trade secrets</span></label>
+                            <label class="radio-item"><input type="radio" name="sensitivity" value="Restricted"> <span class="radio-label">Restricted</span><span class="radio-desc">Regulated data (HIPAA, PCI, GDPR)</span></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Network Exposure</label>
+                        <div class="radio-grid">
+                            <label class="radio-item"><input type="radio" name="exposure" value="Internal Only"> <span class="radio-label">Internal Only</span><span class="radio-desc">No external access</span></label>
+                            <label class="radio-item"><input type="radio" name="exposure" value="VPN"> <span class="radio-label">VPN</span><span class="radio-desc">Accessible via VPN</span></label>
+                            <label class="radio-item"><input type="radio" name="exposure" value="Internet-Facing" checked> <span class="radio-label">Internet-Facing</span><span class="radio-desc">Publicly accessible</span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+                <button class="btn btn-primary" onclick="nextStep()">Continue → Data Flows</button>
+            </div>
+        </section>
+
+        <!-- Step 4: Data Flows & Trust Boundaries -->
+        <section class="wizard-step" id="step-4">
+            <div class="step-header">
+                <h2>🔄 Data Flows & Trust Boundaries</h2>
+                <p>Define how data moves through your system and where trust boundaries exist.</p>
+            </div>
+
+            <div class="form-card">
+                <div class="form-group">
+                    <label>Components</label>
+                    <p class="form-help">System components (pre-filled from template if selected)</p>
+                    <div class="tag-input-container">
+                        <div class="tag-list" id="component-tags"></div>
+                        <input type="text" id="component-input" placeholder="Type and press Enter (e.g., Web Server, Database)" class="input-field tag-input" onkeydown="handleTagInput(event, 'component')">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="section-header">
+                        <label>Data Flows</label>
+                        <button class="btn btn-small" onclick="addDataFlow()">+ Add Flow</button>
+                    </div>
+                    <div id="data-flows-list" class="dynamic-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="section-header">
+                        <label>Trust Boundaries</label>
+                        <button class="btn btn-small" onclick="addTrustBoundary()">+ Add Boundary</button>
+                    </div>
+                    <div id="trust-boundaries-list" class="dynamic-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+                <button class="btn btn-primary btn-analyze" onclick="runAnalysis()">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a10 10 0 1 0 10 10"/>
+                        <path d="M12 2v10l7-7"/>
+                    </svg>
+                    Run STRIDE Analysis
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 5: AI Analysis (Loading) -->
+        <section class="wizard-step" id="step-5">
+            <div class="analysis-container" id="analysis-status">
+                <div class="analysis-loading">
+                    <div class="analysis-top-row">
+                        <div class="shield-pulse">
+                            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M40 8L12 20v20c0 16.6 11.9 32.1 28 36 16.1-3.9 28-19.4 28-36V20L40 8z" stroke="var(--accent)" stroke-width="2.5" fill="none">
+                                    <animate attributeName="stroke-dasharray" values="0 200;200 0;0 200" dur="3s" repeatCount="indefinite"/>
+                                </path>
+                                <path d="M40 20L24 28v12c0 10 7.2 19.4 16 21.6 8.8-2.2 16-11.6 16-21.6V28L40 20z" fill="var(--accent)" opacity="0.1">
+                                    <animate attributeName="opacity" values="0.05;0.2;0.05" dur="2s" repeatCount="indefinite"/>
+                                </path>
+                                <text x="40" y="48" text-anchor="middle" fill="var(--accent)" font-size="20" font-family="Inter">🔍</text>
+                            </svg>
+                        </div>
+                        <div class="analysis-header-text">
+                            <h2 id="analysis-title">AI Threat Analysis Engine</h2>
+                            <p class="analysis-substatus" id="analysis-substatus">Initializing STRIDE analysis engine</p>
+                            <div class="analysis-progress">
+                                <div class="progress-bar" id="analysis-progress-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Terminal Output -->
+                    <div class="ai-terminal" id="ai-terminal">
+                        <div class="ai-terminal-header">
+                            <div class="terminal-dots">
+                                <span class="dot-red"></span>
+                                <span class="dot-yellow"></span>
+                                <span class="dot-green"></span>
+                            </div>
+                            <span class="terminal-title">ThreatModelAI — LLM Analysis Console</span>
+                            <button id="toggle-raw-logs" class="btn btn-small" style="margin-left: auto; display: none;" onclick="toggleRawLogs()">View Raw API Logs</button>
+                        </div>
+                        <div class="ai-terminal-body" id="ai-terminal-body">
+                            <div class="terminal-line system">
+                                <span class="terminal-prompt">system</span>
+                                <span class="terminal-text">Waiting for analysis request...</span>
+                            </div>
+                            
+                            <!-- Raw API Logs (Hidden by Default) -->
+                            <div class="raw-api-logs" id="raw-api-logs">
+                                <div class="raw-log-section">
+                                    <div class="raw-log-title">LLM System & User Prompt</div>
+                                    <div class="raw-log-content" id="raw-prompt-content"></div>
+                                </div>
+                                <div class="raw-log-section">
+                                    <div class="raw-log-title">Raw LLM JSON Response</div>
+                                    <div class="raw-log-content" id="raw-response-content"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STRIDE Progress Checklist -->
+                    <div class="stride-checklist" id="stride-checklist">
+                        <div class="stride-check" data-cat="S"><span class="check-icon">⏳</span> Spoofing threats</div>
+                        <div class="stride-check" data-cat="T"><span class="check-icon">⏳</span> Tampering threats</div>
+                        <div class="stride-check" data-cat="R"><span class="check-icon">⏳</span> Repudiation threats</div>
+                        <div class="stride-check" data-cat="I"><span class="check-icon">⏳</span> Information Disclosure threats</div>
+                        <div class="stride-check" data-cat="D"><span class="check-icon">⏳</span> Denial of Service threats</div>
+                        <div class="stride-check" data-cat="E"><span class="check-icon">⏳</span> Elevation of Privilege threats</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 6: Threat Review & DREAD Scoring -->
+        <section class="wizard-step" id="step-6">
+            <div class="step-header">
+                <h2>🛡️ Review Threats & DREAD Scoring</h2>
+                <p>Review identified threats, adjust DREAD scores, and remove false positives.</p>
+            </div>
+
+            <!-- Risk Summary Dashboard -->
+            <div class="risk-dashboard" id="risk-dashboard">
+                <!-- Populated by JS -->
+            </div>
+
+            <!-- STRIDE Filter Tabs -->
+            <div class="stride-filters" id="stride-filters">
+                <button class="filter-btn active" data-filter="all" onclick="filterThreats('all')">All</button>
+                <button class="filter-btn" data-filter="Spoofing" onclick="filterThreats('Spoofing')">🎭 Spoofing</button>
+                <button class="filter-btn" data-filter="Tampering" onclick="filterThreats('Tampering')">✏️ Tampering</button>
+                <button class="filter-btn" data-filter="Repudiation" onclick="filterThreats('Repudiation')">🚫 Repudiation</button>
+                <button class="filter-btn" data-filter="Information Disclosure" onclick="filterThreats('Information Disclosure')">👁️ Info Disc.</button>
+                <button class="filter-btn" data-filter="Denial of Service" onclick="filterThreats('Denial of Service')">⛔ DoS</button>
+                <button class="filter-btn" data-filter="Elevation of Privilege" onclick="filterThreats('Elevation of Privilege')">⬆️ Elev. Priv.</button>
+            </div>
+
+            <!-- Threat Cards -->
+            <div class="threat-cards" id="threat-cards">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-secondary" onclick="goToStep(4)">← Back to Data Flows</button>
+                <button class="btn btn-primary" onclick="nextStep()">Generate Report →</button>
+            </div>
+        </section>
+
+        <!-- Step 7: Report -->
+        <section class="wizard-step" id="step-7">
+            <div class="step-header">
+                <h2>📄 Threat Model Report</h2>
+                <p>Your threat model report is ready. Preview and export.</p>
+            </div>
+
+            <div class="report-actions-bar">
+                <div class="report-tabs">
+                    <button class="report-tab active" onclick="switchReportTab('preview')">Preview</button>
+                    <button class="report-tab" onclick="switchReportTab('markdown')">Markdown</button>
+                </div>
+                <div class="export-buttons">
+                    <button class="btn btn-secondary" onclick="downloadReport('markdown')">
+                        ⬇ Download .md
+                    </button>
+                    <button class="btn btn-primary" onclick="downloadReport('html')">
+                        ⬇ Download .html
+                    </button>
+                </div>
+            </div>
+
+            <div class="report-preview" id="report-preview">
+                <div class="report-loading">Generating report...</div>
+            </div>
+
+            <div class="report-markdown" id="report-markdown" style="display:none;">
+                <pre><code id="report-md-content"></code></pre>
+            </div>
+
+            <div class="step-actions">
+                <button class="btn btn-secondary" onclick="prevStep()">← Back to Threats</button>
+                <button class="btn btn-accent" onclick="startOver()">🔄 New Threat Model</button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>AI Threat Modeling Assistant — OWASP + STRIDE + DREAD Methodology</p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
