@@ -1,6 +1,6 @@
 """
 LLM Client — Supports OpenAI, Anthropic, and Google Gemini APIs for threat analysis.
-Handles API calls, response parsing, and graceful fallback.
+Handles API calls and response parsing.
 """
 
 import json
@@ -83,7 +83,7 @@ class LLMClient:
         key = key or os.getenv("ANTHROPIC_API_KEY", "")
         if key and HAS_ANTHROPIC:
             self._client = anthropic.Anthropic(api_key=key)
-            self.model = os.environ.get("ANTHROPIC_MODEL", "claude-3-opus-20240229")
+            self.model = self.model or os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
             self.provider = "anthropic"
             return True
         return False
@@ -244,22 +244,74 @@ class LLMClient:
         except json.JSONDecodeError:
             pass
 
-        # Try extracting from markdown code block
-        patterns = [
-            r'```json\s*\n(.*?)\n\s*```',
-            r'```\s*\n(.*?)\n\s*```',
-            r'\{[\s\S]*\}',
-            r'\[[\s\S]*\]'
-        ]
+        # Strip markdown code fences
+        cleaned = text.strip()
+        if cleaned.startswith('```'):
+            first_nl = cleaned.find('\n')
+            if first_nl != -1:
+                cleaned = cleaned[first_nl + 1:]
+        if cleaned.rstrip().endswith('```'):
+            cleaned = cleaned.rstrip()[:-3]
+        cleaned = cleaned.strip()
 
-        for pattern in patterns:
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
+        # Try parsing the fence-stripped text
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+        # Extract from first { to last } (handles extra text around JSON)
+        start = cleaned.find('{')
+        if start != -1:
+            end = cleaned.rfind('}')
+            if end > start:
                 try:
-                    json_str = match.group(1) if match.lastindex else match.group(0)
-                    return json.loads(json_str)
-                except (json.JSONDecodeError, IndexError):
-                    continue
+                    return json.loads(cleaned[start:end + 1])
+                except json.JSONDecodeError:
+                    pass
+
+            # JSON likely truncated (hit max_tokens) — try to repair
+            repaired = LLMClient._repair_truncated_json(cleaned[start:])
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError:
+                pass
 
         print(f"[LLM Warning] Could not parse JSON from response: {text[:200]}...")
         return None
+
+    @staticmethod
+    def _repair_truncated_json(text):
+        """Repair truncated JSON by closing open strings, brackets, and braces."""
+        in_string = False
+        escape_next = False
+        stack = []
+
+        for ch in text:
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == '\\' and in_string:
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == '{':
+                stack.append('}')
+            elif ch == '[':
+                stack.append(']')
+            elif ch in '}]' and stack:
+                stack.pop()
+
+        result = text
+        # Close any open string
+        if in_string:
+            result += '"'
+        # Close all open brackets/braces in reverse order
+        while stack:
+            result += stack.pop()
+
+        return result

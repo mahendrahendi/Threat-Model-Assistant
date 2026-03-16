@@ -94,9 +94,15 @@ def analyze():
     # Create threat model
     model = ThreatModel(system_info=system_info)
 
+    if not llm_client or not llm_client.is_available:
+        return jsonify({"error": "LLM not connected. Configure ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY."}), 503
+
     # Run STRIDE analysis with timing
     start_time = time.time()
-    threats, raw_prompt, raw_response = analyze_threats_with_llm(system_info, llm_client)
+    try:
+        threats, raw_prompt, raw_response = analyze_threats_with_llm(system_info, llm_client)
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
     elapsed = round(time.time() - start_time, 2)
     for threat in threats:
         model.add_threat(threat)
@@ -147,19 +153,14 @@ def analyze_stream():
         user_roles=data.get("user_roles", []),
         domain=data.get("domain", "general")
     )
+    if not llm_client or not llm_client.is_available:
+        return jsonify({"error": "LLM not connected. Configure ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY."}), 503
+
     model = ThreatModel(system_info=system_info)
 
     def generate():
         start_time = time.time()
-        from engine.stride import _build_prompts, generate_fallback_threats
-        
-        if not llm_client or not llm_client.is_available:
-            threats = generate_fallback_threats(system_info)
-            elapsed = round(time.time() - start_time, 2)
-            for t in threats: model.add_threat(t)
-            active_models[model.id] = model
-            yield f"data: {json.dumps({'type': 'complete', 'result': {'model_id': model.id, 'threats': [t.to_dict() for t in model.threats], 'risk_summary': aggregate_risk_summary(model.threats), 'llm_used': False, 'llm_meta': {}}})}\n\n"
-            return
+        from engine.stride import _build_prompts
 
         system_prompt, prompt = _build_prompts(system_info)
         
@@ -167,7 +168,7 @@ def analyze_stream():
         yield f"data: {json.dumps({'type': 'prompts', 'system': system_prompt, 'user': prompt})}\n\n"
 
         full_response = ""
-        for chunk in llm_client.generate_stream(system_prompt, prompt, temperature=0.3, max_tokens=8000):
+        for chunk in llm_client.generate_stream(system_prompt, prompt, temperature=0.3, max_tokens=16384):
             if chunk:
                 full_response += chunk
                 # SSE data must be single line, so we json serialize the chunk object
@@ -200,14 +201,18 @@ def analyze_stream():
                     title=t_data.get("title", "Unnamed Threat"),
                     category=category,
                     description=t_data.get("description", ""),
-                    mitigation=t_data.get("mitigation", ""),
+                    attack_scenario=t_data.get("attack_scenario", ""),
+                    affected_component=t_data.get("affected_component", ""),
+                    prerequisites=t_data.get("prerequisites", []),
+                    mitigations=t_data.get("mitigations", []),
+                    references=t_data.get("references", []),
                     dread_score=dread
                 ))
         else:
             print(f"\n[CRITICAL PARSE ERROR] LLM succeeded but parsing failed!", flush=True)
             print(f"[CRITICAL PARSE ERROR] Raw response: {full_response[:200]}...", flush=True)
-            print(f"[CRITICAL PARSE ERROR] Parsed type: {type(parsed)}", flush=True)
-            threats = generate_fallback_threats(system_info)
+            yield f"data: {json.dumps({'type': 'complete', 'result': {'error': 'LLM response could not be parsed as JSON. Please try again.'}})}\n\n"
+            return
 
         elapsed = round(time.time() - start_time, 2)
         for t in threats: model.add_threat(t)
@@ -336,14 +341,16 @@ if __name__ == '__main__':
     port = int(os.getenv('FLASK_PORT', 5000))
     debug = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
 
-    print(f"""
-    ╔══════════════════════════════════════════════════╗
-    ║     AI Threat Modeling Assistant v1.0            ║
-    ║     OWASP + STRIDE + DREAD                      ║
-    ╠══════════════════════════════════════════════════╣
-    ║  LLM Status: {'✅ ' + llm_client.provider + ' (' + llm_client.model + ')' if llm_client.is_available else '⚠️  No API key configured (using fallback templates)'}
-    ║  Server:     http://localhost:{port}              
-    ╚══════════════════════════════════════════════════╝
-    """)
+    llm_status = (f"[OK] {llm_client.provider} ({llm_client.model})"
+                  if llm_client.is_available
+                  else "[X] No API key configured -- set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY")
+    print(f"\n"
+          f"  ==================================================\n"
+          f"  |  AI Threat Modeling Assistant v1.0              |\n"
+          f"  |  OWASP + STRIDE + DREAD                        |\n"
+          f"  ==================================================\n"
+          f"  LLM Status: {llm_status}\n"
+          f"  Server:     http://localhost:{port}\n"
+          f"  ==================================================\n")
 
     app.run(host='0.0.0.0', port=port, debug=debug)
