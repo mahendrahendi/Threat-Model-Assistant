@@ -206,17 +206,16 @@ class LLMClient:
 
             elif self.provider == "gemini":
                 combined_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}"
-                response = self._client.models.generate_content(
+                for chunk in self._client.models.generate_content_stream(
                     model=self.model,
                     contents=combined_prompt,
                     config=genai.types.GenerateContentConfig(
                         temperature=temperature,
                         max_output_tokens=max_tokens
-                    ),
-                    stream=True
-                )
-                for chunk in response:
-                    yield chunk.text
+                    )
+                ):
+                    if chunk.text:
+                        yield chunk.text
 
         except Exception as e:
             print(f"\n[LLM CRITICAL ERROR] Streaming failed from {self.provider}", flush=True)
